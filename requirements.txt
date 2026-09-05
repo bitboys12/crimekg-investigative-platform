@@ -1,0 +1,24 @@
+# Data processing / NLP
+pandas
+numpy
+spacy
+
+# RDF / ontology / semantic representation
+rdflib
+
+# Graph construction and analysis
+networkx
+
+# Machine learning
+scikit-learn
+
+# Graph machine learning
+torch
+torch-geometric
+
+# Notebook / development
+jupyter
+ipykernel
+
+# Neo4j integration
+neo4j

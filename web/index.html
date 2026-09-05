@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI Criminal Network Analysis — SIH26189</title>
+  <meta name="description" content="Intelligent FIR analysis and semantic Knowledge Graph platform for investigative cross-case network discovery." />
+  
+  <!-- Typography from Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Source+Sans+3:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;0,8..60,700;1,8..60,400&display=swap" rel="stylesheet" />
+  
+  <link rel="stylesheet" href="/css/styles.css" />
+</head>
+<body class="theme-light">
+  <!-- Government / Digital Service Header -->
+  <header class="app-header" id="appHeader">
+    <div class="header-top-bar">
+      <div class="header-top-inner">
+        <div class="official-badge">
+          <span class="badge-flag">🇮🇳</span>
+          <span class="badge-text">Ministry of Home Affairs & Cybersecurity Research Prototype &bull; SIH 2026 (SIH26189)</span>
+        </div>
+        <div class="system-status-indicator" id="systemStatusBadge" title="System Data Status">
+          <span class="status-dot live"></span>
+          <span class="status-label" id="statusLabel">Checking Connection...</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="header-main-bar">
+      <div class="header-main-inner">
+        <a href="#home" class="brand-container" id="brandLink">
+          <div class="brand-emblem" aria-hidden="true">
+            <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
+              <polygon points="16,3 29,9 29,23 16,29 3,23 3,9" stroke="#B38B2E" stroke-width="2" fill="#12304A"/>
+              <circle cx="16" cy="16" r="4.5" fill="#B38B2E"/>
+              <line x1="16" y1="3" x2="16" y2="11.5" stroke="#2F7473" stroke-width="1.5"/>
+              <line x1="16" y1="20.5" x2="16" y2="29" stroke="#2F7473" stroke-width="1.5"/>
+              <line x1="3" y1="9" x2="12" y2="14" stroke="#2F7473" stroke-width="1.5"/>
+              <line x1="20" y1="18" x2="29" y2="23" stroke="#2F7473" stroke-width="1.5"/>
+            </svg>
+          </div>
+          <div class="brand-titles">
+            <span class="brand-title">Criminal Network Analysis</span>
+            <span class="brand-subtitle">Investigative Knowledge Graph Intelligence Platform</span>
+          </div>
+        </a>
+
+        <!-- Universal Search Bar -->
+        <div class="header-search-box" id="universalSearchBox">
+          <div class="search-input-wrapper">
+            <svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="11" cy="11" r="8"></circle>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+            </svg>
+            <input 
+              type="text" 
+              id="globalSearchInput" 
+              placeholder="Search case #, suspect, vehicle plate, location, or crime type..." 
+              autocomplete="off"
+              aria-label="Universal Search"
+            />
+            <button class="search-clear-btn" id="searchClearBtn" style="display:none;" aria-label="Clear Search">&times;</button>
+          </div>
+          <!-- Quick Search Dropdown -->
+          <div class="search-dropdown-results" id="searchDropdown" style="display: none;"></div>
+        </div>
+
+        <!-- Primary Actions -->
+        <div class="header-actions">
+          <a href="#fir" class="btn btn-primary btn-sm" id="headerAnalyzeBtn">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+              <polyline points="14 2 14 8 20 8"></polyline>
+              <line x1="12" y1="18" x2="12" y2="12"></line>
+              <line x1="9" y1="15" x2="15" y2="15"></line>
+            </svg>
+            Analyze FIR
+          </a>
+        </div>
+      </div>
+    </div>
+
+    <!-- Navigation Tabs -->
+    <nav class="app-nav" aria-label="Main Navigation">
+      <div class="nav-inner">
+        <ul class="nav-list" id="mainNav">
+          <li><a href="#home" class="nav-link active" data-view="home">Home</a></li>
+          <li><a href="#fir" class="nav-link" data-view="fir">FIR Analysis</a></li>
+          <li><a href="#graph" class="nav-link" data-view="graph">Knowledge Graph</a></li>
+          <li><a href="#discovery" class="nav-link" data-view="discovery">Relationship Discovery</a></li>
+          <li><a href="#analytics" class="nav-link" data-view="analytics">Analytics</a></li>
+          <li><a href="#methodology" class="nav-link" data-view="methodology">Methodology</a></li>
+          <li><a href="#about" class="nav-link" data-view="about">About</a></li>
+        </ul>
+      </div>
+    </nav>
+  </header>
+
+  <!-- Legal Neutrality Notice Banner -->
+  <div class="legal-notice-bar" role="complementary">
+    <div class="legal-notice-inner">
+      <span class="legal-badge">Investigative Notice</span>
+      <p class="legal-text">
+        <strong>Important:</strong> Graph relationships and AI-generated signals represent patterns or connections extracted from available records. They support analytical workflows and do not establish guilt, criminal responsibility or legal conclusions.
+      </p>
+    </div>
+  </div>
+
+  <!-- Breadcrumbs Bar -->
+  <div class="breadcrumb-bar" id="breadcrumbBar" style="display: none;">
+    <div class="breadcrumb-inner" id="breadcrumbContainer">
+      <a href="#home">Home</a>
+      <span class="sep">/</span>
+      <span class="current" id="breadcrumbCurrent">Current Page</span>
+    </div>
+  </div>
+
+  <!-- Main Application Content Container -->
+  <main class="app-main" id="appMain" role="main">
+    <div class="loading-full-screen" id="appLoader">
+      <div class="spinner"></div>
+      <p>Initializing Criminal Intelligence Knowledge Graph...</p>
+    </div>
+  </main>
+
+  <!-- Global Modal Container -->
+  <div class="modal-backdrop" id="modalBackdrop" style="display: none;">
+    <div class="modal-dialog" id="modalDialog" role="dialog" aria-modal="true">
+      <button class="modal-close" id="modalCloseBtn" aria-label="Close dialog">&times;</button>
+      <div class="modal-content" id="modalContent"></div>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <footer class="app-footer">
+    <div class="footer-inner">
+      <div class="footer-left">
+        <p class="footer-title">Smart India Hackathon 2026 &bull; Problem Statement SIH26189</p>
+        <p class="footer-subtitle">Team: banDds &bull; Theme: Blockchain & Cybersecurity &bull; AI Criminal Network Analysis</p>
+      </div>
+      <div class="footer-right">
+        <p class="footer-notes">Based on Stanford Protégé Crime Ontology (13 Classes) & Neo4j Knowledge Graph</p>
+        <p class="footer-disclaimer">Research Demonstration Prototype &bull; Not for Unsupervised Legal Enforcement</p>
+      </div>
+    </div>
+  </footer>
+
+  <!-- Script Modules -->
+  <script type="module" src="/js/app.js"></script>
+</body>
+</html>
