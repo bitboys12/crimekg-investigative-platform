@@ -41,13 +41,61 @@ class GraphService:
 
         # ML Model state (Logistic Regression link prediction)
         self.ml_model = None
+        self.ml_weights = None
+        self.ml_coefficients = []
+        self.ml_intercept = 0.0
         self.ml_model_loaded = False
         self.ml_feature_names = []
         self.ml_metrics = {}
         self._load_ml_model()
 
+        # In-memory caches for expensive cloud aggregations
+        self._cache_repeat_suspects = None
+        self._cache_vehicle_conns = None
+        self._cache_location_conns = None
+        self._cache_district_patterns = None
+        self._cache_analytics = None
+
+        # Pre-warm aggregation caches in background thread for instant page transitions
+        import threading
+        threading.Thread(target=self._prewarm_cache, daemon=True).start()
+
+    def _prewarm_cache(self):
+        """Asynchronously pre-warms aggregation caches in the background so tabs load instantly."""
+        try:
+            self.get_analytics_overview()
+            self.get_repeat_suspects()
+            self.get_vehicle_connections()
+            self.get_location_connections()
+            self.get_district_patterns()
+        except Exception:
+            pass
+
     def _load_ml_model(self):
-        """Loads trained Logistic Regression model from pipeline/ml/."""
+        """Loads trained Logistic Regression model from JSON weights or fallback artifact without requiring joblib."""
+        # 1. Prefer pure Python JSON weights: zero third-party dependencies (no joblib or scikit-learn required)
+        json_paths = [
+            os.path.join(PROJECT_ROOT, "pipeline", "ml", "model_weights.json"),
+            os.path.join(CURRENT_DIR, "..", "pipeline", "ml", "model_weights.json"),
+            os.path.join(CURRENT_DIR, "model_weights.json")
+        ]
+        for jp in json_paths:
+            if os.path.exists(jp):
+                try:
+                    with open(jp, "r", encoding="utf-8") as f:
+                        data = json.load(f)
+                    self.ml_weights = data
+                    self.ml_coefficients = data.get("coefficients", [])
+                    self.ml_intercept = float(data.get("intercept", 0.0))
+                    self.ml_feature_names = data.get("feature_names", [])
+                    self.ml_metrics = data.get("metrics", {})
+                    self.ml_model_loaded = True
+                    print(f"Loaded trained link-prediction ML weights from {jp} (pure Python, zero dependencies)")
+                    return
+                except Exception as e:
+                    print(f"Failed to load ML weights JSON from {jp}: {e}")
+
+        # 2. Fallback to pickle artifact using dynamic import (avoids IDE/linter unresolved import errors)
         possible_paths = [
             os.path.join(PROJECT_ROOT, "pipeline", "ml", "criminal_network_link_prediction_final.pkl"),
             os.path.join(CURRENT_DIR, "..", "pipeline", "ml", "criminal_network_link_prediction_final.pkl"),
@@ -56,8 +104,9 @@ class GraphService:
         for p in possible_paths:
             if os.path.exists(p):
                 try:
-                    import joblib
-                    artifact = joblib.load(p)
+                    import importlib
+                    joblib_mod = importlib.import_module("joblib")
+                    artifact = joblib_mod.load(p)
                     if isinstance(artifact, dict) and "model" in artifact:
                         self.ml_model = artifact["model"]
                         self.ml_feature_names = artifact.get("feature_names", [])
@@ -822,6 +871,9 @@ class GraphService:
 
     def get_repeat_suspects(self) -> List[Dict[str, Any]]:
         """Identifies suspects implicated across multiple incidents via Cypher or fallback."""
+        if self._cache_repeat_suspects is not None:
+            return self._cache_repeat_suspects
+
         if self.neo4j_connected and self.neo4j_driver:
             try:
                 with self.neo4j_driver.session(database=self.neo4j_database) as session:
@@ -853,6 +905,7 @@ class GraphService:
                             "observation": "Entity appears in multiple records."
                         })
                     if repeat:
+                        self._cache_repeat_suspects = repeat
                         return repeat
             except Exception as e:
                 print(f"Neo4j repeat suspects query failed: {e}. Using fallback.")
@@ -876,10 +929,14 @@ class GraphService:
                     "observation": "Entity appears in multiple records."
                 })
         repeat.sort(key=lambda x: x["incident_count"], reverse=True)
+        self._cache_repeat_suspects = repeat
         return repeat
 
     def get_vehicle_connections(self) -> List[Dict[str, Any]]:
         """Identifies vehicles associated with suspects and recurring across cases."""
+        if self._cache_vehicle_conns is not None:
+            return self._cache_vehicle_conns
+
         if self.neo4j_connected and self.neo4j_driver:
             try:
                 with self.neo4j_driver.session(database=self.neo4j_database) as session:
@@ -907,6 +964,7 @@ class GraphService:
                             "observation": f"Vehicle plate recorded with {s_count} suspect(s) across {i_count} incident(s)."
                         })
                     if connections:
+                        self._cache_vehicle_conns = connections
                         return connections
             except Exception as e:
                 print(f"Neo4j vehicle connections query failed: {e}. Using fallback.")
@@ -929,10 +987,14 @@ class GraphService:
                 "observation": f"Vehicle plate recorded with {len(suspects)} suspect(s) across {len(linked_cases)} incident(s)."
             })
         connections.sort(key=lambda x: (x["suspect_count"], x["incident_count"]), reverse=True)
+        self._cache_vehicle_conns = connections
         return connections
 
     def get_location_connections(self) -> List[Dict[str, Any]]:
         """Identifies recurring location blocks with multiple incidents via Cypher or fallback."""
+        if self._cache_location_conns is not None:
+            return self._cache_location_conns
+
         if self.neo4j_connected and self.neo4j_driver:
             try:
                 with self.neo4j_driver.session(database=self.neo4j_database) as session:
@@ -960,6 +1022,7 @@ class GraphService:
                             "observation": "Multiple incidents associated with the same location block."
                         })
                     if hotspots:
+                        self._cache_location_conns = hotspots
                         return hotspots
             except Exception as e:
                 print(f"Neo4j location connections query failed: {e}. Using fallback.")
@@ -980,10 +1043,14 @@ class GraphService:
                     "observation": "Multiple incidents associated with the same location block."
                 })
         hotspots.sort(key=lambda x: x["incident_count"], reverse=True)
+        self._cache_location_conns = hotspots
         return hotspots
 
     def get_district_patterns(self) -> List[Dict[str, Any]]:
         """Aggregates crime frequency, type diversity, and beats per police district."""
+        if self._cache_district_patterns is not None:
+            return self._cache_district_patterns
+
         if self.neo4j_connected and self.neo4j_driver:
             try:
                 with self.neo4j_driver.session(database=self.neo4j_database) as session:
@@ -1009,6 +1076,7 @@ class GraphService:
                             "observation": f"District {r['district']} recorded {r['incident_count']} incidents across {r['beat_count']} beats."
                         })
                     if patterns:
+                        self._cache_district_patterns = patterns
                         return patterns
             except Exception as e:
                 print(f"Neo4j district patterns query failed: {e}. Using fallback.")
@@ -1028,6 +1096,7 @@ class GraphService:
                 "observation": f"District {dist} recorded {len(cases)} incidents across {len(beats)} beats."
             })
         patterns.sort(key=lambda x: x["incident_count"], reverse=True)
+        self._cache_district_patterns = patterns
         return patterns
 
     def find_multi_hop_path(self, start_id: str, end_id: str, max_depth: int = 4) -> Optional[Dict[str, Any]]:
@@ -1265,7 +1334,14 @@ class GraphService:
         )
 
         # 4. Predict with actual trained ML model
-        if self.ml_model_loaded and self.ml_model is not None:
+        if self.ml_model_loaded and self.ml_coefficients:
+            # Pure Python exact dot-product + sigmoid: zero dependencies on joblib/sklearn
+            z = sum(w * x for w, x in zip(self.ml_coefficients, features)) + self.ml_intercept
+            prob = round(1.0 / (1.0 + math.exp(-z)), 4)
+            pred = 1 if prob >= 0.5 else 0
+            model_info = "LogisticRegression (Trained MLModel.ipynb artifact, 20 graph topological features)"
+            is_trained = True
+        elif self.ml_model_loaded and self.ml_model is not None:
             import numpy as np
             X = np.array(features, dtype=float).reshape(1, -1)
             prob = round(float(self.ml_model.predict_proba(X)[0][1]), 4)
@@ -1276,7 +1352,7 @@ class GraphService:
             return {
                 "error": "Trained ML model artifact unavailable. Cannot perform ML inference.",
                 "is_trained_model": False,
-                "model_status": "Missing artifact pipeline/ml/criminal_network_link_prediction_final.pkl"
+                "model_status": "Missing artifact pipeline/ml/model_weights.json"
             }
 
         return {
@@ -1308,6 +1384,9 @@ class GraphService:
 
     def get_analytics_overview(self) -> Dict[str, Any]:
         """Returns comprehensive data distributions and metrics for dashboard."""
+        if self._cache_analytics is not None:
+            return self._cache_analytics
+
         crime_counts = Counter(c.get("primary_type") for c in self.cases.values() if c.get("primary_type"))
         premise_counts = Counter(c.get("location_description") for c in self.cases.values() if c.get("location_description"))
         district_counts = Counter(c.get("district") for c in self.cases.values() if c.get("district"))
@@ -1322,7 +1401,7 @@ class GraphService:
         shared_vehicle_count = len([v for v, ss in self.vehicle_to_suspects.items() if len(ss) >= 2])
         repeat_location_count = len([l for l, cs in self.location_to_cases.items() if len(cs) >= 2])
 
-        return {
+        res = {
             "total_incidents": len(self.cases),
             "total_suspects": len([n for n in self.nodes.values() if n["type"] == "SUSPECT"]),
             "total_locations": len([n for n in self.nodes.values() if n["type"] == "LOCATION"]),
@@ -1341,3 +1420,5 @@ class GraphService:
             "district_distribution": [{"district": f"District {k}", "count": v} for k, v in sorted(district_counts.items(), key=lambda x: int(x[0]) if x[0].isdigit() else 0)],
             "monthly_distribution": [{"month": k, "count": v} for k, v in sorted(monthly.items())]
         }
+        self._cache_analytics = res
+        return res

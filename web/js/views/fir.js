@@ -77,17 +77,23 @@ export async function renderFir(container) {
   const processingCard = document.getElementById('processingCard');
   const resultsContainer = document.getElementById('extractionResultsContainer');
 
-  // Load samples from backend
-  let samples = [];
-  try {
-    const data = await fetchSampleFirs();
-    samples = data.sample_firs || [];
-    if (samples.length > 0) {
-      firTextInput.value = samples[0];
+  const DEFAULT_SAMPLES = [
+    "On 06/04/2026 at approximately 09:27 hours, responding officers documented Case Number JC100113. An incident of ROBBERY involving ARMED: HANDGUN was reported at 0100XX W FULLERTON AVE, situated within Chicago Police Department District 014, Beat 1431, Ward 32, Community Area 22. The offense occurred on/at a SIDEWALK. The suspect was identified as James Bennett, who fled the vicinity in a vehicle bearing license plate IL-391-9281. The primary statutory classification corresponds to IUCR code 031A (Robbery - Armed: Handgun) under FBI Code 03. No immediate arrest was made on scene. Domestic dispute: NO.",
+    "On 05/18/2026 at approximately 14:15 hours, responding officers documented Case Number JC100226. An incident of THEFT involving $500 AND UNDER was reported at 0020XX N STATE ST, situated within Chicago Police Department District 018, Beat 1833, Ward 42, Community Area 8. The offense occurred on/at a DEPARTMENT STORE. The suspect was identified as Marcus Reynolds. The primary statutory classification corresponds to IUCR code 0820 under FBI Code 06. No immediate arrest was made on scene. Domestic dispute: NO.",
+    "On 04/22/2026 at approximately 21:40 hours, responding officers documented Case Number JC100339. An incident of ROBBERY involving STRONGARM - NO WEAPON was reported at 0070XX S CICERO AVE, situated within Chicago Police Department District 008, Beat 0834, Ward 13, Community Area 65. The offense occurred on/at a PARKING LOT / GARAGE(NON.RESID.). The suspect was identified as Travis Washington. The primary statutory classification corresponds to IUCR code 0320 under FBI Code 03. No immediate arrest was made on scene. Domestic dispute: NO.",
+    "On 03/11/2026 at approximately 18:05 hours, responding officers documented Case Number JC100791. An incident of BATTERY involving DOMESTIC BATTERY SIMPLE was reported at 0340XX W MADISON ST, situated within Chicago Police Department District 011, Beat 1124, Ward 28, Community Area 26. The offense occurred in an APARTMENT. The suspect was identified as Devon Vance. The primary statutory classification corresponds to IUCR code 0486 under FBI Code 08B. ARREST MADE on scene. Domestic dispute: YES."
+  ];
+
+  // Initialize samples immediately from client cache for zero latency
+  let samples = [...DEFAULT_SAMPLES];
+  firTextInput.value = samples[0];
+
+  // Refresh samples from backend asynchronously if available
+  fetchSampleFirs().then(data => {
+    if (data && data.sample_firs && data.sample_firs.length > 0) {
+      samples = data.sample_firs;
     }
-  } catch (e) {
-    console.warn("Could not prefetch samples, using fallback:", e);
-  }
+  }).catch(e => console.warn("Using default FIR samples:", e));
 
   samplePills.forEach(pill => {
     pill.addEventListener('click', () => {
@@ -123,7 +129,7 @@ export async function renderFir(container) {
       return;
     }
 
-    // Start Step Animation
+    // Start Step Animation immediately
     processingCard.style.display = 'block';
     resultsContainer.innerHTML = '';
     submitBtn.disabled = true;
@@ -131,7 +137,7 @@ export async function renderFir(container) {
     const stepIds = ['stepDoc', 'stepNer', 'stepRel', 'stepOnt', 'stepKg', 'stepDone'];
     stepIds.forEach(id => {
       const el = document.getElementById(id);
-      el.className = 'step-item';
+      if (el) el.className = 'step-item';
     });
 
     const setStep = (id, state) => {
@@ -139,30 +145,26 @@ export async function renderFir(container) {
       if (el) el.className = `step-item ${state}`;
     };
 
-    setStep('stepDoc', 'active');
-    await new Promise(r => setTimeout(r, 200));
     setStep('stepDoc', 'done');
-
     setStep('stepNer', 'active');
-    await new Promise(r => setTimeout(r, 250));
-    setStep('stepNer', 'done');
-
-    setStep('stepRel', 'active');
-    await new Promise(r => setTimeout(r, 250));
-    setStep('stepRel', 'done');
-
-    setStep('stepOnt', 'active');
 
     try {
-      const result = await analyzeFir(text);
-
+      // Execute analysis without artificial sleeping
+      const resultPromise = analyzeFir(text);
+      
+      setStep('stepNer', 'done');
+      setStep('stepRel', 'active');
+      await new Promise(r => setTimeout(r, 40));
+      setStep('stepRel', 'done');
+      setStep('stepOnt', 'active');
+      await new Promise(r => setTimeout(r, 40));
       setStep('stepOnt', 'done');
       setStep('stepKg', 'active');
-      await new Promise(r => setTimeout(r, 200));
-      setStep('stepKg', 'done');
 
+      const result = await resultPromise;
+
+      setStep('stepKg', 'done');
       setStep('stepDone', 'done');
-      await new Promise(r => setTimeout(r, 150));
 
       renderStructuredDossier(resultsContainer, result);
     } catch (err) {
